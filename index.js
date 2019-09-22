@@ -13,20 +13,26 @@ const renderHelper = (tasks, options, level) => {
 	let output = [];
 
 	let completedTasks = 0;
+	let pendingTasks = 0;
 	for (const task of tasks) {
 		if (task.isCompleted()) {
 			completedTasks++;
 		}
+		if (task.isPending()) {
+			pendingTasks++;
+		}
 	}
 
-	let tasksToHide = 0;
+	// Hide all completed tasks once the parent is complete
+	let limitCompleted = Infinity;
 	if (Array.isArray(options.limitCompleted)) {
 		if (level < options.limitCompleted.length) {
-			tasksToHide = completedTasks - options.limitCompleted[level];
+			limitCompleted = options.limitCompleted[level];
 		}
 	} else {
-		tasksToHide = completedTasks - options.limitCompleted;
+		limitCompleted = options.limitCompleted;
 	}
+	let tasksToHide = limitCompleted < Infinity && pendingTasks === 0 ? tasks.length : completedTasks - limitCompleted;
 
 	for (const task of tasks) {
 		if (task.isEnabled() && utils.getSymbol(task, options) !== ' ') {
