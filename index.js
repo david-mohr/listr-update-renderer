@@ -7,6 +7,17 @@ const cliTruncate = require('cli-truncate');
 const stripAnsi = require('strip-ansi');
 const utils = require('./lib/utils');
 
+const prepareData = (data) => {
+	if (typeof data === 'string') {
+		data = stripAnsi(data.trim().split('\n').filter(Boolean).pop());
+
+		if (data === '') {
+			data = undefined;
+		}
+	}
+	return data;
+}
+
 const renderHelper = (tasks, options, level) => {
 	level = level || 0;
 
@@ -14,12 +25,16 @@ const renderHelper = (tasks, options, level) => {
 
 	let completedTasks = 0;
 	let pendingTasks = 0;
+	let skippedTasks = 0;
 	for (const task of tasks) {
+		if (task.isPending()) {
+			pendingTasks++;
+		}
 		if (task.isCompleted()) {
 			completedTasks++;
 		}
-		if (task.isPending()) {
-			pendingTasks++;
+		if (task.isSkipped()) {
+			skippedTasks++;
 		}
 	}
 
@@ -34,9 +49,17 @@ const renderHelper = (tasks, options, level) => {
 	}
 	let tasksToHide = limitCompleted < Infinity && pendingTasks === 0 ? tasks.length : completedTasks - limitCompleted;
 
+	const skipReason = {};
+
 	for (const task of tasks) {
 		if (task.isEnabled() && utils.getSymbol(task, options) !== ' ') {
 			if (task.isCompleted() && --tasksToHide >= 0) {
+				continue;
+			}
+			if (task.isSkipped() && skippedTasks > limitCompleted) {
+				const data = prepareData(task.output);
+				skipReason[data] = skipReason[data] || 0;
+				skipReason[data]++;
 				continue;
 			}
 			const skipped = task.isSkipped() ? ` ${chalk.dim('[skipped]')}` : '';
@@ -44,15 +67,7 @@ const renderHelper = (tasks, options, level) => {
 			output.push(indentString(` ${utils.getSymbol(task, options)} ${task.title}${skipped}`, level, '  '));
 
 			if ((task.isPending() || task.isSkipped() || task.hasFailed()) && utils.isDefined(task.output)) {
-				let data = task.output;
-
-				if (typeof data === 'string') {
-					data = stripAnsi(data.trim().split('\n').filter(Boolean).pop());
-
-					if (data === '') {
-						data = undefined;
-					}
-				}
+				const data = prepareData(task.output);
 
 				if (utils.isDefined(data)) {
 					const out = indentString(`${figures.arrowRight} ${data}`, level, '  ');
@@ -63,6 +78,12 @@ const renderHelper = (tasks, options, level) => {
 			if ((task.isPending() || task.hasFailed() || options.collapse === false) && (task.hasFailed() || options.showSubtasks !== false) && task.subtasks.length > 0) {
 				output = output.concat(renderHelper(task.subtasks, options, level + 1));
 			}
+		}
+	}
+
+	if (skippedTasks > limitCompleted) {
+		for (let reason of Object.keys(skipReason)) {
+			output.push(indentString(` ${chalk.yellow(figures.arrowDown)} ${skipReason[reason]} ${chalk.dim('[skipped]')} with reason: ${chalk.yellow(reason)}`, level, '  '));
 		}
 	}
 
