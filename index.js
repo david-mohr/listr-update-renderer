@@ -12,8 +12,27 @@ const renderHelper = (tasks, options, level) => {
 
 	let output = [];
 
+	let completedTasks = 0;
+	for (const task of tasks) {
+		if (task.isCompleted()) {
+			completedTasks++;
+		}
+	}
+
+	let tasksToHide = 0;
+	if (Array.isArray(options.limitCompleted)) {
+		if (level < options.limitCompleted.length) {
+			tasksToHide = completedTasks - options.limitCompleted[level];
+		}
+	} else {
+		tasksToHide = completedTasks - options.limitCompleted;
+	}
+
 	for (const task of tasks) {
 		if (task.isEnabled() && utils.getSymbol(task, options) !== ' ') {
+			if (task.isCompleted() && --tasksToHide >= 0) {
+				continue;
+			}
 			const skipped = task.isSkipped() ? ` ${chalk.dim('[skipped]')}` : '';
 
 			output.push(indentString(` ${utils.getSymbol(task, options)} ${task.title}${skipped}`, level, '  '));
@@ -54,6 +73,7 @@ class UpdateRenderer {
 		this._options = Object.assign({
 			showSubtasks: true,
 			collapse: true,
+			limitCompleted: Infinity,
 			clearOutput: false
 		}, options);
 	}
