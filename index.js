@@ -13,7 +13,7 @@ const renderHelper = (tasks, options, level) => {
 	let output = [];
 
 	for (const task of tasks) {
-		if (task.isEnabled()) {
+		if (task.isEnabled() && utils.getSymbol(task, options) !== ' ') {
 			const skipped = task.isSkipped() ? ` ${chalk.dim('[skipped]')}` : '';
 
 			output.push(indentString(` ${utils.getSymbol(task, options)} ${task.title}${skipped}`, level, '  '));
